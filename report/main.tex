@@ -37,7 +37,7 @@
     \normalsize ESILV -- Groupe G17 -- Café (KC=F) \\[0.4em]
     \normalsize Spring 2026
 }
-\author{Groupe G17}
+\author{Lucas SOARES \and Maxime GRUEZ}
 \date{Mars 2026}
 
 \begin{document}
@@ -114,7 +114,7 @@ statistique.
 \subsection{Présentation de la stratégie}
 
 La stratégie implémentée est un \textit{multivariate pair trading} market-neutral,
-inspirée des travaux de Yang \& Malik (2024) \cite{yang2024}. L'idée de base est
+inspirée des travaux de Yang \& Malik (2024). L'idée de base est
 de construire un panier d'actions dont l'exposition nette au café est nulle
 ($\sum_i \beta_i w_i = 0$), puis d'exploiter la mean-reversion du spread entre
 ce panier et KC=F.
@@ -125,7 +125,7 @@ et la période de trading couvre 2023--2026 (évaluation de la stratégie).
 \subsection{Tests de cointégration}
 
 Pour sélectionner les actions du panier, on applique le test d'Engle-Granger
-\cite{engle1987} à chaque paire (KC=F, action) :
+à chaque paire (KC=F, action) :
 
 \begin{enumerate}
     \item Régression OLS : $\ln P_{\text{stock},t} = \alpha + \beta \ln P_{\text{KC=F},t} + \varepsilon_t$
@@ -148,7 +148,7 @@ def engle_granger_test(y, x):
 \subsection{Optimisation Gurobi -- Neutralité marché}
 
 Les poids optimaux $w^*$ sont obtenus en minimisant la variance du panier sous
-contrainte de neutralité marché \cite{markowitz1952} :
+contrainte de neutralité marché :
 
 \begin{equation}
     \min_{w} \; w^\top \Sigma w
@@ -491,26 +491,11 @@ probablement donné de meilleurs résultats.
 % =============================================================================
 \begin{thebibliography}{9}
 
-\bibitem{yang2024}
-Yang, H., \& Malik, A. (2024).
-\textit{Optimal market-neutral multivariate pair trading on the cryptocurrency platform}.
-International Journal of Financial Studies, 12(3), 77.
-
 \bibitem{palazzi2025}
 Palazzi, R. B. (2025).
 \textit{Trading Games: Beating Passive Strategies in the Bullish Crypto Market}.
 Journal of Futures Markets.
 \url{https://doi.org/10.1002/fut.70018}
-
-\bibitem{engle1987}
-Engle, R. F., \& Granger, C. W. J. (1987).
-\textit{Co-Integration and Error Correction}.
-Econometrica, 55(2), 251--276.
-
-\bibitem{markowitz1952}
-Markowitz, H. (1952).
-\textit{Portfolio Selection}.
-The Journal of Finance, 7(1), 77--91.
 
 \end{thebibliography}
 
