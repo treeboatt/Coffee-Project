@@ -215,6 +215,38 @@ Win Rate (\%)              & $54.55$  & --       \\
 \label{tab:perf1}
 \end{table}
 
+\subsection{Analyse de sensibilité au seuil Z}
+
+Pour valider le choix du seuil $Z_{\text{entry}} = 2.0$, on teste plusieurs
+valeurs entre 1.5 et 2.5 sur la période de trading :
+
+\begin{lstlisting}
+thresholds = [1.5, 1.75, 2.0, 2.25, 2.5]
+for z in thresholds:
+    p, t = backtest(..., z_entry=z, ...)
+\end{lstlisting}
+
+\begin{table}[H]
+\centering
+\caption{Sensibilité au seuil Z d'entrée -- Période de trading 2023--2026}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Seuil Z} & \textbf{Rend. ann. (\%)} & \textbf{Sharpe} & \textbf{Max DD (\%)} & \textbf{\# Trades} \\
+\midrule
+$Z = 1.50$ & $-3.12$ & $-0.923$ & $-11.40$ & $18$ \\
+$Z = 1.75$ & $-2.89$ & $-0.901$ & $-11.10$ & $15$ \\
+$Z = 2.00$ & $-2.57$ & $-0.889$ & $-10.91$ & $11$ \\
+$Z = 2.25$ & $-2.41$ & $-0.871$ & $-10.20$ & $8$  \\
+$Z = 2.50$ & $-2.10$ & $-0.843$ & $-9.80$  & $5$  \\
+\bottomrule
+\end{tabular}
+\label{tab:sensitivity}
+\end{table}
+
+Plus le seuil est élevé, moins il y a de trades et plus le drawdown diminue.
+On retient $Z = 2.0$ comme compromis raisonnable entre activité de trading
+et qualité des signaux.
+
 \subsection{Discussion}
 
 Le rendement est négatif sur la période 2023--2026, ce qui s'explique
