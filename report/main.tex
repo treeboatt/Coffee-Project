@@ -335,10 +335,17 @@ Le spread est défini par :
 
 \subsection{Comparaison des Z-scores}
 
-Pour justifier le choix de BROS, on compare la standard deviation du
-Z-score de chaque paire. Une std proche de 1 indique un Z-score bien
-normalisé et un spread plus mean-reverting. BROS obtient la std la plus
-faible de l'univers, ce qui confirme son adéquation pour la stratégie.
+Pour justifier le choix de BROS, on compare les Z-scores rolling de toutes
+les paires, puis leur standard deviation. Une std proche de 1 indique un
+Z-score bien normalisé et un spread plus mean-reverting. BROS obtient la
+std la plus faible de l'univers, ce qui confirme son adéquation pour la stratégie.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/fig_zscore_lines.png}
+\caption{Z-score rolling 60j de toutes les paires vs KC=F -- KC=F/BROS en surbrillance}
+\label{fig:zscore_lines}
+\end{figure}
 
 \begin{figure}[H]
 \centering
