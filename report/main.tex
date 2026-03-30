@@ -195,6 +195,13 @@ Les règles de trading sont :
 
 \subsection{Résultats}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/fig_performance.png}
+\caption{Courbe d'équité et Z-score du spread -- Période de trading 2023--2026}
+\label{fig:perf1}
+\end{figure}
+
 \begin{table}[H]
 \centering
 \caption{Métriques de performance -- Période de trading 2023--2026}
@@ -322,6 +329,13 @@ Z-score de chaque paire. Une std proche de 1 indique un Z-score bien
 normalisé et un spread plus mean-reverting. BROS obtient la std la plus
 faible de l'univers, ce qui confirme son adéquation pour la stratégie.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig_zscore_hist.png}
+\caption{Std du Z-score par paire (lookback=60j) -- BROS en rouge}
+\label{fig:zscore_hist}
+\end{figure}
+
 \subsection{Grid Search -- Lookback optimal}
 
 Le lookback $L^*$ est sélectionné par grid search sur IS en maximisant
@@ -341,6 +355,13 @@ BEST_LB = lookback_grid[np.argmax([sharpe_is(L) for L in lookback_grid])]
 On obtient $L^* = 5$ jours avec un Sharpe IS de $8.51$. Ce lookback
 court indique que le spread entre KC=F et BROS revient rapidement
 à la moyenne sur la période d'entraînement.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/fig_gridsearch.png}
+\caption{Grid search IS -- Sharpe Ratio en fonction du lookback $L$}
+\label{fig:gridsearch}
+\end{figure}
 
 \subsection{Backtest OOS -- Règles de trading}
 
@@ -385,6 +406,13 @@ exit_stop = (hold_days >= MIN_HOLD) and \
 \end{lstlisting}
 
 \subsection{Résultats OOS}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/fig_performance_g2.png}
+\caption{Courbe d'équité et Z-score OOS -- KC=F / BROS (jan 2025 -- fév 2026)}
+\label{fig:perf2}
+\end{figure}
 
 \begin{table}[H]
 \centering
