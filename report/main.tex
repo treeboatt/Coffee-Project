@@ -82,11 +82,9 @@ la période complète.
 Le code de nettoyage est le même pour les deux games :
 
 \begin{lstlisting}
-# Supprimer les colonnes avec plus de 20% de NaN
 df_clean = df_raw.dropna(thresh=int(0.80 * len(df_raw)), axis=1)
 df_clean = df_clean.ffill().dropna()
 
-# Neutraliser les outliers (|z-score| > 5 sur les rendements)
 for col in df_clean.columns:
     ret = df_clean[col].pct_change().dropna()
     zs  = (ret - ret.mean()) / ret.std()
@@ -95,12 +93,10 @@ for col in df_clean.columns:
 df_clean = df_clean.ffill().dropna()
 \end{lstlisting}
 
-Après nettoyage, le dataset final contient \textbf{1093 observations} sur
-\textbf{12 colonnes}. Les corrélations entre KC=F et les actions sont modérées
+Après nettoyage, le dataset final contient 1093 observations sur
+12 colonnes. Les corrélations entre KC=F et les actions sont modérées
 (entre $-0.10$ et $+0.35$), ce qui laisse de la place pour de l'arbitrage
 statistique.
-
-\newpage
 
 % =============================================================================
 \section{Game \#1 -- Multivariate Pair Trading (Student A)}
@@ -114,8 +110,8 @@ de construire un panier d'actions dont l'exposition nette au café est nulle
 ($\sum_i \beta_i w_i = 0$), puis d'exploiter la mean-reversion du spread entre
 ce panier et KC=F.
 
-La période de \textbf{formation} couvre 2021--2022 (estimation des paramètres)
-et la période de \textbf{trading} couvre 2023--2026 (évaluation de la stratégie).
+La période de formation couvre 2021--2022 (estimation des paramètres)
+et la période de trading couvre 2023--2026 (évaluation de la stratégie).
 
 \subsection{Tests de cointégration}
 
@@ -187,10 +183,10 @@ Le Z-score rolling (fenêtre de 60 jours) est calculé comme :
 
 Les règles de trading sont :
 \begin{itemize}
-    \item \textbf{Entrée long} : $Z_t < -2.0$ (spread sous-évalué)
-    \item \textbf{Entrée short} : $Z_t > +2.0$ (spread sur-évalué)
-    \item \textbf{Sortie} : $Z_t$ revient à 0
-    \item \textbf{Coûts de transaction} : 10 bps par leg
+    \item Entrée long : $Z_t < -2.0$ (spread sous-évalué)
+    \item Entrée short : $Z_t > +2.0$ (spread sur-évalué)
+    \item Sortie : $Z_t$ revient à 0
+    \item Coûts de transaction : 10 bps par leg
 \end{itemize}
 
 \subsection{Résultats}
@@ -263,16 +259,14 @@ ce qui est défavorable aux stratégies mean-reversion : quand un actif
 est en forte tendance, le spread ne revient pas à la moyenne.
 
 Cela dit, la stratégie montre des qualités défensives intéressantes :
-la \textbf{volatilité est 2.5x plus faible} que le benchmark (7.14\%
-vs 18.20\%) et le \textbf{drawdown maximal est deux fois moindre}
+la volatilité est 2.5x plus faible que le benchmark (7.14\%
+vs 18.20\%) et le drawdown maximal est deux fois moindre
 ($-10.91\%$ vs $-21.36\%$). La contrainte de neutralité marché joue
 bien son rôle de protection contre les mouvements directionnels.
 
 La principale limite est l'estimation \textit{statique} des hedge ratios
 sur la période de formation : si la relation structurelle entre les actions
 et KC=F évolue, les poids deviennent sous-optimaux hors échantillon.
-
-\newpage
 
 % =============================================================================
 \section{Game \#2 -- Optimized 1-vs-1 Pairs Trading (Student B)}
@@ -285,16 +279,16 @@ la plus cointégrée de l'univers, avec trois améliorations par rapport à une
 approche naïve, inspirées de Palazzi (2025) \cite{palazzi2025} :
 
 \begin{enumerate}
-    \item \textbf{Lookback dynamique} : optimisation du paramètre de fenêtre
+    \item Lookback dynamique : optimisation du paramètre de fenêtre
           du Z-score par grid search sur la période in-sample
-    \item \textbf{Filtre de volatilité} : inhibition des entrées en régime
+    \item Filtre de volatilité : inhibition des entrées en régime
           de forte volatilité
-    \item \textbf{Stop-loss trailing adaptatif} : protection contre les
+    \item Stop-loss trailing adaptatif : protection contre les
           positions adverses prolongées
 \end{enumerate}
 
-Le split utilisé est \textbf{75\% in-sample (IS)} du 20/10/2021 au
-24/01/2025 (819 observations) et \textbf{25\% out-of-sample (OOS)} du
+Le split utilisé est 75\% in-sample (IS) du 20/10/2021 au
+24/01/2025 (819 observations) et 25\% out-of-sample (OOS) du
 27/01/2025 au 27/02/2026 (274 observations).
 
 \subsection{Sélection de la paire -- Test de cointégration}
@@ -304,7 +298,6 @@ chaque action vs KC=F. On ré-estime ensuite le hedge ratio $\hat{\gamma}$
 sur IS seulement, pour éviter le data leakage.
 
 \begin{lstlisting}
-# Test EG sur IS pour chaque action
 for stock in STOCKS:
     y    = log_IS['KC=F'].values
     X    = np.column_stack([np.ones(len(log_IS)), log_IS[stock].values])
@@ -345,7 +338,6 @@ le Sharpe Ratio :
 def sharpe_is(lookback):
     zs  = ((spread_IS - spread_IS.rolling(lookback).mean())
            / spread_IS.rolling(lookback).std()).dropna()
-    # simulation de la strategie sur IS...
     return (r.mean() - RF_DAILY) / r.std() * np.sqrt(252)
 
 lookback_grid = list(range(5, 361, 5))
@@ -387,10 +379,10 @@ MIN\_HOLD              & $5$ jours & Durée minimale de détention \\
 
 Les règles de trading sont les suivantes :
 \begin{itemize}
-    \item \textbf{Entrée long} : $Z_t < -0.7$ et $\sigma_t \leq 1.5 \cdot \bar{\sigma}_{IS}$
-    \item \textbf{Entrée short} : $Z_t > +0.7$ et $\sigma_t \leq 1.5 \cdot \bar{\sigma}_{IS}$
-    \item \textbf{Sortie normale} : $Z_t$ repasse par 0
-    \item \textbf{Sortie stop-loss} : PnL $<$ pic $-$ STOP\_BASE $\times$ vol\_ratio (après MIN\_HOLD jours)
+    \item Entrée long : $Z_t < -0.7$ et $\sigma_t \leq 1.5 \cdot \bar{\sigma}_{IS}$
+    \item Entrée short : $Z_t > +0.7$ et $\sigma_t \leq 1.5 \cdot \bar{\sigma}_{IS}$
+    \item Sortie normale : $Z_t$ repasse par 0
+    \item Sortie stop-loss : PnL $<$ pic $-$ STOP\_BASE $\times$ vol\_ratio (après MIN\_HOLD jours)
 \end{itemize}
 
 Le stop-loss est adaptatif : en période de forte volatilité, le stop
@@ -447,7 +439,7 @@ pas à sa moyenne -- les signaux du Z-score génèrent des trades perdants
 mean-reversion en présence de tendances structurelles fortes.
 
 Néanmoins, la stratégie présente à nouveau des qualités défensives :
-la volatilité annualisée ($11.3\%$) est \textbf{3x inférieure} à celle
+la volatilité annualisée ($11.3\%$) est 3x inférieure à celle
 du Buy \& Hold ($32.5\%$), et le drawdown maximal est deux fois moindre
 ($-14.56\%$ vs $-28.70\%$). Le filtre de volatilité a joué son rôle en
 évitant des entrées en période de forte turbulence.
@@ -455,8 +447,6 @@ du Buy \& Hold ($32.5\%$), et le drawdown maximal est deux fois moindre
 Une amélioration possible serait de re-estimer le hedge ratio
 dynamiquement (rolling window) plutôt qu'une fois sur IS, afin de
 s'adapter aux changements de régime.
-
-\newpage
 
 % =============================================================================
 \section{Conclusion}
@@ -466,9 +456,9 @@ Ce projet nous a permis d'implémenter deux stratégies de pairs trading
 sur le marché du café, en exploitant les relations de cointégration entre
 KC=F et les actions du secteur.
 
-Les deux stratégies partagent la même conclusion : elles \textbf{sous-performent
-en rendement absolu} sur les périodes testées, mais \textbf{surperforment
-en termes de risque} (volatilité et drawdown systématiquement inférieurs au
+Les deux stratégies partagent la même conclusion : elles sous-performent
+en rendement absolu sur les périodes testées, mais surperforment
+en termes de risque (volatilité et drawdown systématiquement inférieurs au
 benchmark). Cela confirme l'intérêt des stratégies market-neutral comme
 outil de diversification et de gestion du risque.
 
