@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \"import gurobipy; print\\(''Gurobi OK:'', gurobipy.gurobi.version\\(\\)\\)\")",
+      "Bash(python3 -c \"import cvxpy; print\\(''cvxpy:'', cvxpy.__version__\\)\")",
+      "Bash(/c/Users/HP/anaconda3/envs/tensorflow_env/python.exe -c \"import gurobipy; print\\(''Gurobi OK:'', gurobipy.gurobi.version\\(\\)\\)\")",
+      "Bash(py -3.13 -c \"import gurobipy; m = gurobipy.Model\\(\\); print\\(''Gurobi licence OK''\\)\")",
+      "Bash(py -3.13 -c \"import json; nb = json.load\\(open\\(''c:/Users/HP/Documents/GitHub/Coffee-Project/game-1-trading.ipynb'', encoding=''utf-8''\\)\\); print\\(''nbformat:'', nb[''nbformat'']\\); print\\(''cells:'', len\\(nb[''cells'']\\)\\); print\\(''keys:'', list\\(nb.keys\\(\\)\\)\\)\")"
+    ]
+  }
+}
