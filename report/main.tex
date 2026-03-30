@@ -53,8 +53,8 @@
 \subsection{Présentation du secteur}
 
 Le café est l'une des matières premières les plus échangées au monde, derrière le
-pétrole. Le contrat de référence utilisé dans ce projet est le \textbf{Coffee C
-Futures (KC=F)}, coté sur l'Intercontinental Exchange (ICE). Il représente
+pétrole. Le contrat de référence utilisé dans ce projet est le Coffee C
+Futures (KC=F), coté sur l'Intercontinental Exchange (ICE). Il représente
 37~500 livres de café Arabica et sert d'Anchor dans nos deux stratégies.
 
 Le prix du café est fortement influencé par les conditions climatiques au Brésil
@@ -69,9 +69,9 @@ Les données de clôture journalières ont été téléchargées via l'API
 soit environ 4,5 ans de données. Le dataset final contient 12 actifs :
 
 \begin{itemize}
-    \item \textbf{Anchor} : KC=F (Coffee C Futures)
-    \item \textbf{Proxy ETF} : DBA (Invesco DB Agriculture Fund)
-    \item \textbf{Actions} : SBUX, BROS, KDP, SJM, NSRGY, MDLZ, FARM, WEST
+    \item Anchor : KC=F (Coffee C Futures)
+    \item Proxy ETF : DBA (Invesco DB Agriculture Fund)
+    \item Actions : SBUX, BROS, KDP, SJM, NSRGY, MDLZ, FARM, WEST
 \end{itemize}
 
 Deux tickers (JDEP, TAST) ont été exclus car délistés et non disponibles sur
@@ -97,6 +97,15 @@ Après nettoyage, le dataset final contient 1093 observations sur
 12 colonnes. Les corrélations entre KC=F et les actions sont modérées
 (entre $-0.10$ et $+0.35$), ce qui laisse de la place pour de l'arbitrage
 statistique.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/fig_prices.png}
+\caption{Prix normalisés base 100 de tous les actifs sur la période complète}
+\label{fig:prices}
+\end{figure}
+
+\newpage
 
 % =============================================================================
 \section{Game \#1 -- Multivariate Pair Trading (Student A)}
@@ -268,6 +277,8 @@ La principale limite est l'estimation \textit{statique} des hedge ratios
 sur la période de formation : si la relation structurelle entre les actions
 et KC=F évolue, les poids deviennent sous-optimaux hors échantillon.
 
+\newpage
+
 % =============================================================================
 \section{Game \#2 -- Optimized 1-vs-1 Pairs Trading (Student B)}
 % =============================================================================
@@ -306,14 +317,21 @@ for stock in STOCKS:
     _, pval, *_ = adfuller(resid, regression='c')
 \end{lstlisting}
 
-La paire retenue est \textbf{KC=F / BROS} (Dutch Bros Coffee) avec une
-$p$-value EG de \textbf{0.0002}, largement inférieure au seuil de 5\%.
+La paire retenue est KC=F / BROS (Dutch Bros Coffee) avec une
+$p$-value EG de 0.0002, largement inférieure au seuil de 5\%.
 Le hedge ratio estimé sur IS est $\hat{\gamma} = 0.4682$.
 
 Le spread est défini par :
 \begin{equation}
     S_t = \ln P_{\text{KC=F},t} - \hat{\gamma} \cdot \ln P_{\text{BROS},t}
 \end{equation}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\textwidth]{figures/fig_spread_g2.png}
+\caption{Prix normalisés KC=F / BROS et Z-score du spread sur la période complète}
+\label{fig:spread_g2}
+\end{figure}
 
 \subsection{Comparaison des Z-scores}
 
@@ -447,6 +465,8 @@ du Buy \& Hold ($32.5\%$), et le drawdown maximal est deux fois moindre
 Une amélioration possible serait de re-estimer le hedge ratio
 dynamiquement (rolling window) plutôt qu'une fois sur IS, afin de
 s'adapter aux changements de régime.
+
+\newpage
 
 % =============================================================================
 \section{Conclusion}
