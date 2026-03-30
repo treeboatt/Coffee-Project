@@ -1,6 +1,5 @@
 \documentclass[12pt, a4paper]{article}
 
-% ── Packages ──────────────────────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[french]{babel}
@@ -14,11 +13,23 @@
 \usepackage{float}
 \usepackage{parskip}
 \usepackage{setspace}
+\usepackage{listings}
+\usepackage{xcolor}
 \onehalfspacing
 
 \hypersetup{colorlinks=true, linkcolor=black, citecolor=black, urlcolor=black}
 
-% ── Title ─────────────────────────────────────────────────────────────────────
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    breaklines=true,
+    showstringspaces=false,
+    keywordstyle=\bfseries,
+    commentstyle=\itshape\color{gray},
+}
+
 \title{
     \vspace{-1cm}
     \Large \textbf{Commodity Trading Games} \\[0.4em]
@@ -35,27 +46,27 @@
 \tableofcontents
 \newpage
 
-% ══════════════════════════════════════════════════════════════════════════════
+% =============================================================================
 \section{Analyse du secteur café et données}
-% ══════════════════════════════════════════════════════════════════════════════
+% =============================================================================
 
 \subsection{Présentation du secteur}
 
-Le café est l'une des matières premières agricoles les plus échangées au monde.
-Le contrat de référence est le \textbf{Coffee C Futures (KC=F)}, coté sur
-l'Intercontinental Exchange (ICE), qui représente 37~500 livres de café Arabica.
-Son prix est influencé par les conditions climatiques au Brésil et en Colombie,
-les taux de change, et la demande mondiale des grands groupes agroalimentaires.
+Le café est l'une des matières premières les plus échangées au monde, derrière le
+pétrole. Le contrat de référence utilisé dans ce projet est le \textbf{Coffee C
+Futures (KC=F)}, coté sur l'Intercontinental Exchange (ICE). Il représente
+37~500 livres de café Arabica et sert d'Anchor dans nos deux stratégies.
 
-L'univers d'actions retenu couvre l'ensemble de la chaîne de valeur du café :
-torréfacteurs, distributeurs, groupes de restauration rapide et conglomérats
-agroalimentaires exposés au prix du café.
+Le prix du café est fortement influencé par les conditions climatiques au Brésil
+(premier producteur mondial), les taux de change, et la demande des grands groupes
+agroalimentaires. Cela crée une relation structurelle entre KC=F et les actions
+du secteur café, que l'on cherche à exploiter via des stratégies de pairs trading.
 
 \subsection{Sources de données}
 
-Les données OHLCV journalières ont été téléchargées via l'API \texttt{yfinance}
-pour la période du 1\textsuperscript{er} janvier 2020 au 28 février 2026,
-soit plus de 5 ans de données. Le dataset contient 12 actifs :
+Les données de clôture journalières ont été téléchargées via l'API
+\texttt{yfinance} pour la période du 20 octobre 2021 au 27 février 2026,
+soit environ 4,5 ans de données. Le dataset final contient 12 actifs :
 
 \begin{itemize}
     \item \textbf{Anchor} : KC=F (Coffee C Futures)
@@ -63,70 +74,76 @@ soit plus de 5 ans de données. Le dataset contient 12 actifs :
     \item \textbf{Actions} : SBUX, BROS, KDP, SJM, NSRGY, MDLZ, FARM, WEST
 \end{itemize}
 
-Deux tickers (JDEP, TAST) ont échoué au téléchargement car délistés.
+Deux tickers (JDEP, TAST) ont été exclus car délistés et non disponibles sur
+la période complète.
 
 \subsection{Nettoyage des données}
 
-Les étapes de nettoyage appliquées sont les suivantes :
-\begin{enumerate}
-    \item Suppression des colonnes avec plus de 20\% de valeurs manquantes
-    \item Remplissage des NaN restants par forward-fill
-    \item Détection et neutralisation des outliers extrêmes ($|z\text{-score}| > 5$
-          sur les rendements journaliers)
-\end{enumerate}
+Le code de nettoyage est le même pour les deux games :
 
-La figure~\ref{fig:prices} montre l'évolution des prix normalisés (base 100)
-de l'ensemble des actifs sur la période complète.
+\begin{lstlisting}
+# Supprimer les colonnes avec plus de 20% de NaN
+df_clean = df_raw.dropna(thresh=int(0.80 * len(df_raw)), axis=1)
+df_clean = df_clean.ffill().dropna()
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_prices.png}
-    \caption{Prix normalisés (base 100) -- Anchor, proxy et univers equity café}
-    \label{fig:prices}
-\end{figure}
+# Neutraliser les outliers (|z-score| > 5 sur les rendements)
+for col in df_clean.columns:
+    ret = df_clean[col].pct_change().dropna()
+    zs  = (ret - ret.mean()) / ret.std()
+    bad = df_clean.index[1:][np.abs(zs) > 5]
+    df_clean.loc[bad, col] = np.nan
+df_clean = df_clean.ffill().dropna()
+\end{lstlisting}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.85\linewidth]{figures/fig_correlation.png}
-    \caption{Matrice de corrélation des rendements journaliers}
-    \label{fig:corr}
-\end{figure}
-
-La matrice de corrélation (figure~\ref{fig:corr}) montre des corrélations
-modérées entre KC=F et les actions du secteur, ce qui laisse de la place
-pour de l'arbitrage statistique.
+Après nettoyage, le dataset final contient \textbf{1093 observations} sur
+\textbf{12 colonnes}. Les corrélations entre KC=F et les actions sont modérées
+(entre $-0.10$ et $+0.35$), ce qui laisse de la place pour de l'arbitrage
+statistique.
 
 \newpage
 
-% ══════════════════════════════════════════════════════════════════════════════
+% =============================================================================
 \section{Game \#1 -- Multivariate Pair Trading (Student A)}
-% ══════════════════════════════════════════════════════════════════════════════
+% =============================================================================
 
 \subsection{Présentation de la stratégie}
 
 La stratégie implémentée est un \textit{multivariate pair trading} market-neutral,
-inspirée des travaux de \cite{yang2024}. L'objectif est de constituer un panier
-d'actions dont l'exposition nette au marché café est nulle ($\sum \beta_i w_i = 0$),
-et d'exploiter la mean-reversion du spread cointégré entre ce panier et l'anchor KC=F.
+inspirée des travaux de Yang \& Malik (2024) \cite{yang2024}. L'idée de base est
+de construire un panier d'actions dont l'exposition nette au café est nulle
+($\sum_i \beta_i w_i = 0$), puis d'exploiter la mean-reversion du spread entre
+ce panier et KC=F.
 
-\subsection{Sélection du panier -- Tests de cointégration}
+La période de \textbf{formation} couvre 2021--2022 (estimation des paramètres)
+et la période de \textbf{trading} couvre 2023--2026 (évaluation de la stratégie).
 
-La période de \textbf{formation} couvre 2021--2022 et la période de
-\textbf{trading} couvre 2023--2026.
+\subsection{Tests de cointégration}
 
-Pour chaque action de l'univers, on applique le test d'Engle-Granger en deux étapes :
+Pour sélectionner les actions du panier, on applique le test d'Engle-Granger
+\cite{engle1987} à chaque paire (KC=F, action) :
+
 \begin{enumerate}
-    \item Régression OLS des log-prix de l'action sur les log-prix de KC=F
-    \item Test ADF sur les résidus (seuil $p < 0.10$)
+    \item Régression OLS : $\ln P_{\text{stock},t} = \alpha + \beta \ln P_{\text{KC=F},t} + \varepsilon_t$
+    \item Test ADF sur les résidus $\hat{\varepsilon}_t$ (seuil $p < 0.10$)
 \end{enumerate}
 
-Le hedge ratio $\hat{\beta}$ issu de l'OLS mesure la sensibilité de chaque action
-au futures café. Les 5 actions avec la $p$-value EG la plus faible sont retenues :
-BROS, SJM, SBUX, MDLZ, KDP.
+Le hedge ratio $\hat{\beta}$ mesure la sensibilité de l'action au futures café.
+Les 5 actions avec la $p$-value EG la plus faible sont retenues : BROS, SJM,
+SBUX, MDLZ, KDP.
+
+\begin{lstlisting}
+def engle_granger_test(y, x):
+    X    = np.column_stack([np.ones(len(x)), x.values])
+    beta = np.linalg.lstsq(X, y.values, rcond=None)[0]
+    resid = y.values - X @ beta
+    _, pvalue, *_ = adfuller(resid, regression='c')
+    return pvalue, float(beta[1])
+\end{lstlisting}
 
 \subsection{Optimisation Gurobi -- Neutralité marché}
 
-Les poids optimaux $w^*$ sont obtenus en résolvant le problème quadratique suivant :
+Les poids optimaux $w^*$ sont obtenus en minimisant la variance du panier sous
+contrainte de neutralité marché \cite{markowitz1952} :
 
 \begin{equation}
     \min_{w} \; w^\top \Sigma w
@@ -134,26 +151,29 @@ Les poids optimaux $w^*$ sont obtenus en résolvant le problème quadratique sui
     \sum_{i} \beta_i w_i = 0, \quad \sum_{i} w_i = 1, \quad w_i \in [-1, 1]
 \end{equation}
 
-où $\Sigma$ est la matrice de covariance des rendements log sur la période de
-formation, et $\beta_i$ est le hedge ratio de l'action $i$ estimé par OLS.
+La contrainte $\sum \beta_i w_i = 0$ est clé : elle garantit que le portefeuille
+n'a aucune exposition nette aux mouvements du café. Le solveur utilisé est
+\texttt{gurobipy} (licence académique).
 
-La contrainte $\sum \beta_i w_i = 0$ garantit la \textbf{neutralité marché} :
-le portefeuille n'a aucune exposition nette aux futures café.
-Le solveur utilisé est \texttt{gurobipy} (licence académique Gurobi 13.0.1).
+\begin{lstlisting}
+model = gp.Model('MarketNeutralBasket')
+w = model.addVars(n, lb=-1.0, ub=1.0, name='w')
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.75\linewidth]{figures/fig_weights.png}
-    \caption{Poids optimaux du basket market-neutral -- bleu = long, rouge = short}
-    \label{fig:weights}
-\end{figure}
+variance = gp.quicksum(Sigma[i,j] * w[i] * w[j]
+                       for i in range(n) for j in range(n))
+model.setObjective(variance, GRB.MINIMIZE)
+model.addConstr(gp.quicksum(w[i] for i in range(n)) == 1)
+model.addConstr(gp.quicksum(betas[i] * w[i] for i in range(n)) == 0)
+model.optimize()
+\end{lstlisting}
 
-Le net beta obtenu est $\sum \beta_i w_i = 0.000000$, confirmant la contrainte
-de neutralité marché.
+On obtient un net beta de $\sum \beta_i w_i = 0.000000$, confirmant la
+contrainte de neutralité marché.
 
 \subsection{Backtest -- Mean reversion sur Z-score}
 
-Le spread du panier est défini comme :
+Le spread du panier est défini comme la combinaison linéaire pondérée des
+log-prix :
 
 \begin{equation}
     S_t = \sum_{i} w_i \ln P_{i,t}
@@ -165,29 +185,15 @@ Le Z-score rolling (fenêtre de 60 jours) est calculé comme :
     Z_t = \frac{S_t - \mu_{t,60}}{\sigma_{t,60}}
 \end{equation}
 
-Les règles de trading sont les suivantes :
+Les règles de trading sont :
 \begin{itemize}
-    \item \textbf{Entrée long} : $Z_t < -2$ (spread sous-évalué)
-    \item \textbf{Entrée short} : $Z_t > +2$ (spread sur-évalué)
+    \item \textbf{Entrée long} : $Z_t < -2.0$ (spread sous-évalué)
+    \item \textbf{Entrée short} : $Z_t > +2.0$ (spread sur-évalué)
     \item \textbf{Sortie} : $Z_t$ revient à 0
     \item \textbf{Coûts de transaction} : 10 bps par leg
 \end{itemize}
 
 \subsection{Résultats}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_results.png}
-    \caption{Courbe de valeur, drawdown et signaux Z-score (2023--2026)}
-    \label{fig:results}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_monthly_pnl.png}
-    \caption{PnL mensuel de la stratégie OTT basket}
-    \label{fig:pnl}
-\end{figure}
 
 \begin{table}[H]
 \centering
@@ -196,8 +202,9 @@ Les règles de trading sont les suivantes :
 \toprule
 \textbf{Métrique} & \textbf{OTT Basket (Gurobi)} & \textbf{Benchmark EW} \\
 \midrule
-Rendement annualisé (\%)  & $-2.57$  & $+3.03$  \\
-Volatilité annualisée (\%) & $7.14$  & $18.20$  \\
+Rendement total (\%)       & $-7.47$  & $+9.24$  \\
+Rendement annualisé (\%)   & $-2.57$  & $+3.03$  \\
+Volatilité annualisée (\%) & $7.14$   & $18.20$  \\
 Sharpe Ratio               & $-0.889$ & $0.035$  \\
 Max Drawdown (\%)          & $-10.91$ & $-21.36$ \\
 Calmar Ratio               & $-0.235$ & $0.141$  \\
@@ -205,43 +212,225 @@ Nombre de trades           & $11$     & $1$      \\
 Win Rate (\%)              & $54.55$  & --       \\
 \bottomrule
 \end{tabular}
-\label{tab:perf}
+\label{tab:perf1}
 \end{table}
-
-\subsection{Analyse de sensibilité}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{figures/fig_sensitivity.png}
-    \caption{Sensibilité des métriques au seuil Z d'entrée}
-    \label{fig:sensitivity}
-\end{figure}
-
-L'analyse de sensibilité (figure~\ref{fig:sensitivity}) montre que le seuil
-$Z = 2.0$ offre un bon compromis entre nombre de trades et qualité des signaux.
 
 \subsection{Discussion}
 
-La stratégie présente une \textbf{volatilité significativement plus faible}
-que le benchmark (7.14\% vs 18.20\%) et un \textbf{drawdown maximal deux fois
-moindre} ($-10.91\%$ vs $-21.36\%$), confirmant l'efficacité de la
-contrainte de neutralité marché.
+Le rendement est négatif sur la période 2023--2026, ce qui s'explique
+principalement par la forte tendance haussière du café sur cette période.
+Le marché du café a connu une hausse de plus de 100\% sur 2024--2025,
+ce qui est défavorable aux stratégies mean-reversion : quand un actif
+est en forte tendance, le spread ne revient pas à la moyenne.
 
-Le rendement négatif sur 2023--2026 s'explique par la faible volatilité du
-spread cointégré sur cette période, limitant les opportunités d'arbitrage.
-Le marché du café a connu une tendance haussière prononcée, défavorable
-aux stratégies mean-reversion.
+Cela dit, la stratégie montre des qualités défensives intéressantes :
+la \textbf{volatilité est 2.5x plus faible} que le benchmark (7.14\%
+vs 18.20\%) et le \textbf{drawdown maximal est deux fois moindre}
+($-10.91\%$ vs $-21.36\%$). La contrainte de neutralité marché joue
+bien son rôle de protection contre les mouvements directionnels.
 
-La principale limite est l'estimation statique des hedge ratios sur la
-période de formation, qui peut souffrir d'instabilité structurelle hors échantillon.
+La principale limite est l'estimation \textit{statique} des hedge ratios
+sur la période de formation : si la relation structurelle entre les actions
+et KC=F évolue, les poids deviennent sous-optimaux hors échantillon.
 
-% ══════════════════════════════════════════════════════════════════════════════
+\newpage
+
+% =============================================================================
+\section{Game \#2 -- Optimized 1-vs-1 Pairs Trading (Student B)}
+% =============================================================================
+
+\subsection{Présentation de la stratégie}
+
+La stratégie implémentée est un pairs trading 1-vs-1 entre KC=F et l'action
+la plus cointégrée de l'univers, avec trois améliorations par rapport à une
+approche naïve, inspirées de Palazzi (2025) \cite{palazzi2025} :
+
+\begin{enumerate}
+    \item \textbf{Lookback dynamique} : optimisation du paramètre de fenêtre
+          du Z-score par grid search sur la période in-sample
+    \item \textbf{Filtre de volatilité} : inhibition des entrées en régime
+          de forte volatilité
+    \item \textbf{Stop-loss trailing adaptatif} : protection contre les
+          positions adverses prolongées
+\end{enumerate}
+
+Le split utilisé est \textbf{75\% in-sample (IS)} du 20/10/2021 au
+24/01/2025 (819 observations) et \textbf{25\% out-of-sample (OOS)} du
+27/01/2025 au 27/02/2026 (274 observations).
+
+\subsection{Sélection de la paire -- Test de cointégration}
+
+On applique le test d'Engle-Granger sur la période IS uniquement pour
+chaque action vs KC=F. On ré-estime ensuite le hedge ratio $\hat{\gamma}$
+sur IS seulement, pour éviter le data leakage.
+
+\begin{lstlisting}
+# Test EG sur IS pour chaque action
+for stock in STOCKS:
+    y    = log_IS['KC=F'].values
+    X    = np.column_stack([np.ones(len(log_IS)), log_IS[stock].values])
+    beta = np.linalg.lstsq(X, y, rcond=None)[0]
+    resid = y - X @ beta
+    _, pval, *_ = adfuller(resid, regression='c')
+\end{lstlisting}
+
+La paire retenue est \textbf{KC=F / BROS} (Dutch Bros Coffee) avec une
+$p$-value EG de \textbf{0.0002}, largement inférieure au seuil de 5\%.
+Le hedge ratio estimé sur IS est $\hat{\gamma} = 0.4682$.
+
+Le spread est défini par :
+\begin{equation}
+    S_t = \ln P_{\text{KC=F},t} - \hat{\gamma} \cdot \ln P_{\text{BROS},t}
+\end{equation}
+
+\subsection{Comparaison des Z-scores}
+
+Pour justifier le choix de BROS, on compare la standard deviation du
+Z-score de chaque paire. Une std proche de 1 indique un Z-score bien
+normalisé et un spread plus mean-reverting. BROS obtient la std la plus
+faible de l'univers, ce qui confirme son adéquation pour la stratégie.
+
+\subsection{Grid Search -- Lookback optimal}
+
+Le lookback $L^*$ est sélectionné par grid search sur IS en maximisant
+le Sharpe Ratio :
+
+\begin{lstlisting}
+def sharpe_is(lookback):
+    zs  = ((spread_IS - spread_IS.rolling(lookback).mean())
+           / spread_IS.rolling(lookback).std()).dropna()
+    # simulation de la strategie sur IS...
+    return (r.mean() - RF_DAILY) / r.std() * np.sqrt(252)
+
+lookback_grid = list(range(5, 361, 5))
+BEST_LB = lookback_grid[np.argmax([sharpe_is(L) for L in lookback_grid])]
+\end{lstlisting}
+
+On obtient $L^* = 5$ jours avec un Sharpe IS de $8.51$. Ce lookback
+court indique que le spread entre KC=F et BROS revient rapidement
+à la moyenne sur la période d'entraînement.
+
+\subsection{Backtest OOS -- Règles de trading}
+
+Les paramètres utilisés en OOS sont ceux de Palazzi (2025) :
+
+\begin{table}[H]
+\centering
+\caption{Paramètres de la stratégie (fixés sur IS)}
+\begin{tabular}{lll}
+\toprule
+\textbf{Paramètre} & \textbf{Valeur} & \textbf{Rôle} \\
+\midrule
+$Z_{\text{threshold}}$ & $0.7$   & Seuil d'entrée/sortie \\
+TC (par leg)           & $10$ bps & Coûts de transaction \\
+Lookback $L^*$         & $5$ jours & Fenêtre du Z-score \\
+VOL\_MULT              & $1.5\times$ & Filtre de volatilité \\
+STOP\_BASE             & $2.5\%$ & Base du trailing stop \\
+MIN\_HOLD              & $5$ jours & Durée minimale de détention \\
+\bottomrule
+\end{tabular}
+\label{tab:params}
+\end{table}
+
+Les règles de trading sont les suivantes :
+\begin{itemize}
+    \item \textbf{Entrée long} : $Z_t < -0.7$ et $\sigma_t \leq 1.5 \cdot \bar{\sigma}_{IS}$
+    \item \textbf{Entrée short} : $Z_t > +0.7$ et $\sigma_t \leq 1.5 \cdot \bar{\sigma}_{IS}$
+    \item \textbf{Sortie normale} : $Z_t$ repasse par 0
+    \item \textbf{Sortie stop-loss} : PnL $<$ pic $-$ STOP\_BASE $\times$ vol\_ratio (après MIN\_HOLD jours)
+\end{itemize}
+
+Le stop-loss est adaptatif : en période de forte volatilité, le stop
+s'élargit proportionnellement au ratio $\sigma_t / \bar{\sigma}_{IS}$,
+pour éviter les sorties prématurées dues au bruit de marché.
+
+\begin{lstlisting}
+vol_ratio     = vol / vol_IS_avg
+stop_adaptive = STOP_BASE * vol_ratio
+
+exit_stop = (hold_days >= MIN_HOLD) and \
+            (trade_pnl < peak_pnl - stop_adaptive)
+\end{lstlisting}
+
+\subsection{Résultats OOS}
+
+\begin{table}[H]
+\centering
+\caption{Métriques de performance -- Période OOS (jan 2025 -- fév 2026)}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Métrique} & \textbf{Pairs Trading KC=F/BROS} & \textbf{Buy \& Hold} \\
+\midrule
+Rendement total (\%)       & $-12.70$ & $-8.40$  \\
+Rendement annualisé (\%)   & $-14.20$ & $-9.30$  \\
+Volatilité annualisée (\%) & $11.30$  & $32.50$  \\
+Sharpe Ratio               & $-1.222$ & $-0.412$ \\
+Max Drawdown (\%)          & $-14.56$ & $-28.70$ \\
+Calmar Ratio               & $-0.806$ & $-0.324$ \\
+Nombre de trades           & $42$     & $1$      \\
+Stop-losses déclenchés     & $9$      & --       \\
+\bottomrule
+\end{tabular}
+\label{tab:perf2}
+\end{table}
+
+\subsection{Discussion}
+
+Les résultats OOS sont négatifs, ce qui s'explique par le contexte de
+marché particulier sur la période janvier 2025 -- février 2026 : le prix
+du café (KC=F) a connu une hausse exceptionnelle de plus de 80\%,
+entraînant une rupture de la relation de cointégration avec BROS.
+
+Quand une série explose à la hausse, le spread cointégré ne revient
+pas à sa moyenne -- les signaux du Z-score génèrent des trades perdants
+à répétition. C'est une limite inhérente à toutes les stratégies de
+mean-reversion en présence de tendances structurelles fortes.
+
+Néanmoins, la stratégie présente à nouveau des qualités défensives :
+la volatilité annualisée ($11.3\%$) est \textbf{3x inférieure} à celle
+du Buy \& Hold ($32.5\%$), et le drawdown maximal est deux fois moindre
+($-14.56\%$ vs $-28.70\%$). Le filtre de volatilité a joué son rôle en
+évitant des entrées en période de forte turbulence.
+
+Une amélioration possible serait de re-estimer le hedge ratio
+dynamiquement (rolling window) plutôt qu'une fois sur IS, afin de
+s'adapter aux changements de régime.
+
+\newpage
+
+% =============================================================================
+\section{Conclusion}
+% =============================================================================
+
+Ce projet nous a permis d'implémenter deux stratégies de pairs trading
+sur le marché du café, en exploitant les relations de cointégration entre
+KC=F et les actions du secteur.
+
+Les deux stratégies partagent la même conclusion : elles \textbf{sous-performent
+en rendement absolu} sur les périodes testées, mais \textbf{surperforment
+en termes de risque} (volatilité et drawdown systématiquement inférieurs au
+benchmark). Cela confirme l'intérêt des stratégies market-neutral comme
+outil de diversification et de gestion du risque.
+
+La période 2024--2026 a été particulièrement difficile pour ce type de
+stratégie : la hausse historique du café (+100\% en deux ans) a cassé
+les relations de cointégration stables, rendant les signaux mean-reversion
+moins fiables. Dans un régime de marché plus calme, ces stratégies auraient
+probablement donné de meilleurs résultats.
+
+% =============================================================================
 \begin{thebibliography}{9}
 
 \bibitem{yang2024}
 Yang, H., \& Malik, A. (2024).
 \textit{Optimal market-neutral multivariate pair trading on the cryptocurrency platform}.
 International Journal of Financial Studies, 12(3), 77.
+
+\bibitem{palazzi2025}
+Palazzi, R. B. (2025).
+\textit{Trading Games: Beating Passive Strategies in the Bullish Crypto Market}.
+Journal of Futures Markets.
+\url{https://doi.org/10.1002/fut.70018}
 
 \bibitem{engle1987}
 Engle, R. F., \& Granger, C. W. J. (1987).
